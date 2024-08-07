@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>File Management System</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="container">
+        <h1>File Management System</h1>
+
+        <!-- Folder Creation Section -->
+        <div class="folder-section">
+            <h2>Create Folder</h2>
+            <form id="create-folder-form">
+                <input type="text" id="folder-name" placeholder="Folder Name" required>
+                <button type="submit">Create</button>
+            </form>
+        </div>
+
+        <!-- Folder List Section -->
+        <div class="folder-list-section">
+            <h2>Folders</h2>
+            <ul id="folder-list"></ul>
+        </div>
+
+        <!-- File Upload Section -->
+        <div class="file-section">
+            <h2>Upload File</h2>
+            <form id="upload-file-form">
+                <select id="folder-select" required></select>
+                <input type="text" id="file-name" placeholder="File Name" required>
+                <textarea id="file-content" placeholder="File Content" required></textarea>
+                <button type="submit">Upload</button>
+            </form>
+        </div>
+
+        <!-- File List Section -->
+        <div class="file-list-section">
+            <h2>Files in Selected Folder</h2>
+            <ul id="file-list"></ul>
+        </div>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>
