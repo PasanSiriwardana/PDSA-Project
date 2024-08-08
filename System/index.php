@@ -28,67 +28,68 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_FILES['file'])) {
     }
 }
 
-// Handle file search
-$searchQuery = '';
-if (isset($_POST['search'])) {
-    $searchQuery = $_POST['search'];
-    $stmt = $conn->prepare("SELECT * FROM files WHERE filename LIKE ? ORDER BY filename");
-    $searchParam = '%' . $searchQuery . '%';
-    $stmt->bind_param("s", $searchParam);
+// Handle file delete
+if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['delete'])) {
+    $fileId = $_POST['file_id'];
+    // Get file info from database
+    $stmt = $conn->prepare("SELECT filename, file_extension FROM files WHERE id = ?");
+    $stmt->bind_param("i", $fileId);
     $stmt->execute();
-    $searchResult = $stmt->get_result();
-} else {
-    $searchResult = $conn->query("SELECT * FROM files ORDER BY filename");
+    $stmt->bind_result($filename, $fileExt);
+    $stmt->fetch();
+    $stmt->close();
+
+    // Delete file from server
+    $filePath = 'uploads/' . $fileExt . '/' . $filename;
+    if (file_exists($filePath)) {
+        unlink($filePath);
+    }
+
+    // Delete file from database
+    $stmt = $conn->prepare("DELETE FROM files WHERE id = ?");
+    $stmt->bind_param("i", $fileId);
+    $stmt->execute();
+    $stmt->close();
+
+    header("Location: index.php");
+    exit();
 }
 
 // Handle file rename
-if (isset($_POST['rename'])) {
+if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['rename'])) {
     $fileId = $_POST['file_id'];
     $newFilename = $_POST['new_filename'];
-
-    // Fetch old file info
+    // Get old file info from database
     $stmt = $conn->prepare("SELECT filename, file_extension FROM files WHERE id = ?");
     $stmt->bind_param("i", $fileId);
     $stmt->execute();
-    $oldFile = $stmt->get_result()->fetch_assoc();
+    $stmt->bind_result($oldFilename, $fileExt);
+    $stmt->fetch();
+    $stmt->close();
 
-    // Rename file in directory
-    $oldFilePath = 'uploads/' . $oldFile['file_extension'] . '/' . $oldFile['filename'];
-    $newFilePath = 'uploads/' . $oldFile['file_extension'] . '/' . $newFilename;
-    if (rename($oldFilePath, $newFilePath)) {
-        // Update file info in the database
-        $stmt = $conn->prepare("UPDATE files SET filename = ? WHERE id = ?");
-        $stmt->bind_param("si", $newFilename, $fileId);
-        $stmt->execute();
-        $stmt->close();
-        $message = "File renamed successfully!";
-    } else {
-        $message = "Failed to rename file.";
+    // Rename file on server
+    $oldFilePath = 'uploads/' . $fileExt . '/' . $oldFilename;
+    $newFilePath = 'uploads/' . $fileExt . '/' . $newFilename;
+    if (file_exists($oldFilePath)) {
+        rename($oldFilePath, $newFilePath);
     }
+
+    // Update filename in database
+    $stmt = $conn->prepare("UPDATE files SET filename = ? WHERE id = ?");
+    $stmt->bind_param("si", $newFilename, $fileId);
+    $stmt->execute();
+    $stmt->close();
+
+    header("Location: index.php");
+    exit();
 }
 
-// Handle file delete
-if (isset($_POST['delete'])) {
-    $fileId = $_POST['file_id'];
+// Fetch files for display
+$result = $conn->query("SELECT id, filename, file_extension FROM files ORDER BY upload_time DESC");
 
-    // Fetch file info
-    $stmt = $conn->prepare("SELECT filename, file_extension FROM files WHERE id = ?");
-    $stmt->bind_param("i", $fileId);
-    $stmt->execute();
-    $file = $stmt->get_result()->fetch_assoc();
-
-    // Delete file from directory
-    $filePath = 'uploads/' . $file['file_extension'] . '/' . $file['filename'];
-    if (unlink($filePath)) {
-        // Delete file info from the database
-        $stmt = $conn->prepare("DELETE FROM files WHERE id = ?");
-        $stmt->bind_param("i", $fileId);
-        $stmt->execute();
-        $stmt->close();
-        $message = "File deleted successfully!";
-    } else {
-        $message = "Failed to delete file.";
-    }
+$files = [];
+while ($row = $result->fetch_assoc()) {
+    $files[] = $row;
 }
 ?>
 
@@ -100,51 +101,52 @@ if (isset($_POST['delete'])) {
     <title>File Sorting System</title>
     <link rel="stylesheet" href="styles.css">
     <style>
-/* File List */
-        ul {
-            list-style-type: none;
-            padding: 0;
+        /* General Styles */
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #f0f2f5;
+            color: #333;
             margin: 0;
+            padding: 0;
         }
-
         header {
             background: #007bff;
             color: #fff;
             padding: 15px 0;
             text-align: center;
         }
-
-        ul li {
-            padding: 12px;
-            border-bottom: 1px solid #ddd;
-            display: flex; /* Use Flexbox for alignment */
-            justify-content: space-between; /* Space between content and buttons */
-            align-items: center; /* Vertically center items */
-            transition: background 0.3s ease;
+        h1 {
+            margin: 0;
+            font-size: 2em;
+        }
+        .container {
+            width: 90%;
+            max-width: 1200px;
+            margin: auto;
         }
 
-        input[type="file"] {
-            margin-bottom: 15px;
-            padding: 8px;
-            border-radius: 4px;
-            border: 1px solid #ddd;
+        /* Upload Section */
+        .upload-section, .search-section {
+            background: #fff;
+            padding: 20px;
+            margin: 20px 0;
+            border-radius: 8px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+            transition: transform 0.3s ease;
         }
-        input[type="text"] {
-            margin-bottom: 15px;
-            padding: 8px;
-            border-radius: 4px;
-            border: 1px solid #ddd;
+        .upload-section:hover, .search-section:hover {
+            transform: scale(1.02);
         }
-
-        ul li:hover {
-            background: #f8f9fa;
-        }
-
-        .file-actions {
+        form {
             display: flex;
-            gap: 5px; /* Space between buttons */
+            flex-direction: column;
         }
-
+        input[type="file"], input[type="text"] {
+            margin-bottom: 15px;
+            padding: 8px;
+            border-radius: 4px;
+            border: 1px solid #ddd;
+        }
         button {
             background: #007bff;
             color: #fff;
@@ -155,34 +157,117 @@ if (isset($_POST['delete'])) {
             font-size: 16px;
             transition: background 0.3s ease, transform 0.2s ease;
         }
-
         button:hover {
             background: #0056b3;
         }
-
         .delete {
-            background: #D11A2A;
+            background: #ff0000;
+            color: #fff;
+            border: none;
+            padding: 12px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+            transition: background 0.3s ease, transform 0.2s ease;
         }
-
         .delete:hover {
-            background: #a72e2e;
+            background: #cd0000;
         }
-
         .rename {
-            background: #007bff; /* Use the same color for rename */
+            background: #6100ff;
+            color: #fff;
+            border: none;
+            padding: 12px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+            transition: background 0.3s ease, transform 0.2s ease;
         }
-
         .rename:hover {
-            background: #0056b3;
+            background: #4502b2;
         }
-
         .message {
             color: #d9534f;
             font-weight: bold;
             margin-top: 10px;
         }
 
-    </style>
+        /* Tabs */
+        .tabs {
+            display: flex;
+            cursor: pointer;
+            margin-bottom: 20px;
+            overflow: hidden;
+            border-radius: 8px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+        }
+        .tab {
+            flex: 1;
+            padding: 12px;
+            text-align: center;
+            background: #f8f9fa;
+            border: 1px solid #ddd;
+            border-bottom: none;
+            transition: background 0.3s ease, color 0.3s ease;
+            font-weight: 600;
+            cursor: pointer;
+            position: relative;
+        }
+        .tab.active {
+            background: #007bff;
+            color: #fff;
+            border-bottom: 2px solid #007bff;
+        }
+        .tab:hover {
+            background: #e2e6ea;
+        }
+        .tab-content {
+            display: none;
+            padding: 20px;
+            background: #fff;
+            border: 1px solid #ddd;
+            border-top: none;
+            border-radius: 0 0 8px 8px;
+            transition: opacity 0.3s ease;
+        }
+        .tab-content.active {
+            display: block;
+            opacity: 1;
+        }
+        .tab-content.hidden {
+            opacity: 0;
+        }
+
+        /* File List */
+        ul {
+            list-style-type: none;
+            padding: 0;
+            margin: 0;
+        }
+        ul li {
+            padding: 12px;
+            border-bottom: 1px solid #ddd;
+            display: flex; /* Use Flexbox for alignment */
+            justify-content: space-between; /* Space between content and buttons */
+            align-items: center; /* Vertically center items */
+            transition: background 0.3s ease;
+        }
+        ul li:hover {
+            background: #f8f9fa;
+        }
+        .file-actions {
+            display: flex;
+            gap: 5px; /* Space between buttons */
+        }
+
+        a.file-link {
+            color: #007bff;
+            text-decoration: none;
+        }
+        a.file-link:hover {
+            text-decoration: underline;
+        }
+        </style>
 </head>
 <body>
     <div class="container">
@@ -191,7 +276,6 @@ if (isset($_POST['delete'])) {
         </header>
 
         <main>
-            <!-- Upload Section -->
             <section class="upload-section">
                 <h2>Upload File</h2>
                 <form action="index.php" method="POST" enctype="multipart/form-data">
@@ -201,66 +285,54 @@ if (isset($_POST['delete'])) {
                 <?php if (isset($message)) echo "<p class='message'>$message</p>"; ?>
             </section>
 
-            <!-- Search Section -->
-            <section class="files-section">
-                <h2>Search Files</h2>
-                <form action="index.php" method="POST">
-                    <input type="text" name="search" value="<?php echo htmlspecialchars($searchQuery); ?>" placeholder="Search by filename">
-                    <button type="submit">Search</button>
-                </form>
-
-                <?php if ($searchResult->num_rows > 0): ?>
-                    <ul>
-                        <?php while ($row = $searchResult->fetch_assoc()): ?>
-                            <li class="file-item">
-                                <span><?php echo htmlspecialchars($row['filename']); ?></span>
+            <section class="search-section">
+                <h2>Manage Files</h2>
+                <ul>
+                    <?php foreach ($files as $file): ?>
+                        <li>
+                            <span><?php echo htmlspecialchars($file['filename']); ?></span>
+                            <div class="file-actions">
                                 <form action="index.php" method="POST" style="display:inline;">
-                                    <input type="hidden" name="file_id" value="<?php echo $row['id']; ?>">
-                                    <button type="submit" class="delete" name="delete" onclick="return confirm('Are you sure you want to delete this file?');">Delete</button>
-                                    <button type="button" class="rename" onclick="renameFile('<?php echo $row['id']; ?>', '<?php echo htmlspecialchars($row['filename']); ?>')">Rename</button>
+                                    <input type="hidden" name="file_id" value="<?php echo $file['id']; ?>">
+                                    <button type="submit" name="delete" class="delete">Delete</button>
                                 </form>
-                            </li>
-                        <?php endwhile; ?>
-                    </ul>
-                <?php else: ?>
-                    <p>No files found.</p>
-                <?php endif; ?>
+                                <button type="button" class="rename" onclick="renameFile('<?php echo $file['id']; ?>', '<?php echo htmlspecialchars($file['filename']); ?>')">Rename</button>
+                            </div>
+                        </li>
+                    <?php endforeach; ?>
+                </ul>
             </section>
         </main>
     </div>
 
     <script>
         function renameFile(fileId, oldFilename) {
-            var newFilename = prompt("Enter new filename:", oldFilename);
-            if (newFilename) {
-                var form = document.createElement('form');
+            const newFilename = prompt("Enter new filename:", oldFilename);
+            if (newFilename && newFilename !== oldFilename) {
+                const form = document.createElement('form');
                 form.method = 'POST';
                 form.action = 'index.php';
 
-                var fileIdInput = document.createElement('input');
+                const fileIdInput = document.createElement('input');
                 fileIdInput.type = 'hidden';
                 fileIdInput.name = 'file_id';
                 fileIdInput.value = fileId;
-                form.appendChild(fileIdInput);
 
-                var newFilenameInput = document.createElement('input');
+                const newFilenameInput = document.createElement('input');
                 newFilenameInput.type = 'hidden';
                 newFilenameInput.name = 'new_filename';
                 newFilenameInput.value = newFilename;
-                form.appendChild(newFilenameInput);
 
-                var renameInput = document.createElement('input');
+                const renameInput = document.createElement('input');
                 renameInput.type = 'hidden';
                 renameInput.name = 'rename';
+
+                form.appendChild(fileIdInput);
+                form.appendChild(newFilenameInput);
                 form.appendChild(renameInput);
 
                 document.body.appendChild(form);
                 form.submit();
-
-                // Reload the page after renaming
-                setTimeout(function() {
-                    window.location.reload();
-                }, 1000); // 1 second delay to ensure form submission
             }
         }
     </script>
