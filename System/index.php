@@ -1,23 +1,19 @@
 <?php
 include 'db.php';
 
-// Handle file upload
 if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_FILES['file'])) {
     $file = $_FILES['file'];
     $filename = $file['name'];
     $fileTmp = $file['tmp_name'];
     $fileExt = strtolower(pathinfo($filename, PATHINFO_EXTENSION));
 
-    // Create folder based on file extension
     $uploadDir = 'uploads/' . $fileExt;
     if (!is_dir($uploadDir)) {
         mkdir($uploadDir, 0777, true);
     }
 
-    // Move file to the appropriate folder
     $destination = $uploadDir . '/' . $filename;
     if (move_uploaded_file($fileTmp, $destination)) {
-        // Save file info to the database
         $stmt = $conn->prepare("INSERT INTO files (filename, file_extension, upload_time) VALUES (?, ?, NOW())");
         $stmt->bind_param("ss", $filename, $fileExt);
         $stmt->execute();
@@ -28,10 +24,8 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_FILES['file'])) {
     }
 }
 
-// Handle file delete
 if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['delete'])) {
     $fileId = $_POST['file_id'];
-    // Get file info from database
     $stmt = $conn->prepare("SELECT filename, file_extension FROM files WHERE id = ?");
     $stmt->bind_param("i", $fileId);
     $stmt->execute();
@@ -39,13 +33,11 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['delete'])) {
     $stmt->fetch();
     $stmt->close();
 
-    // Delete file from server
     $filePath = 'uploads/' . $fileExt . '/' . $filename;
     if (file_exists($filePath)) {
         unlink($filePath);
     }
 
-    // Delete file from database
     $stmt = $conn->prepare("DELETE FROM files WHERE id = ?");
     $stmt->bind_param("i", $fileId);
     $stmt->execute();
@@ -55,11 +47,9 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['delete'])) {
     exit();
 }
 
-// Handle file rename
 if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['rename'])) {
     $fileId = $_POST['file_id'];
     $newFilename = $_POST['new_filename'];
-    // Get old file info from database
     $stmt = $conn->prepare("SELECT filename, file_extension FROM files WHERE id = ?");
     $stmt->bind_param("i", $fileId);
     $stmt->execute();
@@ -67,14 +57,12 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['rename'])) {
     $stmt->fetch();
     $stmt->close();
 
-    // Rename file on server
     $oldFilePath = 'uploads/' . $fileExt . '/' . $oldFilename;
     $newFilePath = 'uploads/' . $fileExt . '/' . $newFilename;
     if (file_exists($oldFilePath)) {
         rename($oldFilePath, $newFilePath);
     }
 
-    // Update filename in database
     $stmt = $conn->prepare("UPDATE files SET filename = ? WHERE id = ?");
     $stmt->bind_param("si", $newFilename, $fileId);
     $stmt->execute();
@@ -84,7 +72,6 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['rename'])) {
     exit();
 }
 
-// Fetch files for display
 $result = $conn->query("SELECT id, filename, file_extension FROM files ORDER BY upload_time DESC");
 
 $files = [];
@@ -125,7 +112,6 @@ while ($row = $result->fetch_assoc()) {
             margin: auto;
         }
 
-        /* Upload Section */
         .upload-section, .search-section {
             background: #fff;
             padding: 20px;
@@ -192,7 +178,6 @@ while ($row = $result->fetch_assoc()) {
             margin-top: 10px;
         }
 
-        /* Tabs */
         .tabs {
             display: flex;
             cursor: pointer;
@@ -238,7 +223,6 @@ while ($row = $result->fetch_assoc()) {
             opacity: 0;
         }
 
-        /* File List */
         ul {
             list-style-type: none;
             padding: 0;
@@ -247,9 +231,9 @@ while ($row = $result->fetch_assoc()) {
         ul li {
             padding: 12px;
             border-bottom: 1px solid #ddd;
-            display: flex; /* Use Flexbox for alignment */
-            justify-content: space-between; /* Space between content and buttons */
-            align-items: center; /* Vertically center items */
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
             transition: background 0.3s ease;
         }
         ul li:hover {
@@ -257,7 +241,7 @@ while ($row = $result->fetch_assoc()) {
         }
         .file-actions {
             display: flex;
-            gap: 5px; /* Space between buttons */
+            gap: 5px;
         }
 
         a.file-link {

@@ -1,23 +1,19 @@
 <?php
 include 'db.php';
 
-// Handle file upload
 if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_FILES['file'])) {
     $file = $_FILES['file'];
     $filename = $file['name'];
     $fileTmp = $file['tmp_name'];
     $fileExt = strtolower(pathinfo($filename, PATHINFO_EXTENSION));
 
-    // Create folder based on file extension
     $uploadDir = 'uploads/' . $fileExt;
     if (!is_dir($uploadDir)) {
         mkdir($uploadDir, 0777, true);
     }
 
-    // Move file to the appropriate folder
     $destination = $uploadDir . '/' . $filename;
     if (move_uploaded_file($fileTmp, $destination)) {
-        // Save file info to the database
         $stmt = $conn->prepare("INSERT INTO files (filename, file_extension, upload_time) VALUES (?, ?, NOW())");
         $stmt->bind_param("ss", $filename, $fileExt);
         $stmt->execute();
@@ -28,7 +24,6 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_FILES['file'])) {
     }
 }
 
-// Fetch files for display
 $result = $conn->query("SELECT file_extension, COUNT(*) AS count FROM files GROUP BY file_extension");
 
 $filesByExtension = [];
@@ -45,7 +40,6 @@ while ($row = $result->fetch_assoc()) {
     <title>Lectures Panel</title>
     <link rel="stylesheet" href="styles.css">
     <style>
-        /* General Styles */
         body {
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
             background: #f0f2f5;
@@ -69,7 +63,6 @@ while ($row = $result->fetch_assoc()) {
             margin: auto;
         }
 
-        /* Upload Section */
         .upload-section {
             background: #fff;
             padding: 20px;
@@ -110,7 +103,6 @@ while ($row = $result->fetch_assoc()) {
             margin-top: 10px;
         }
 
-        /* Tabs */
         .tabs {
             display: flex;
             cursor: pointer;
@@ -156,7 +148,6 @@ while ($row = $result->fetch_assoc()) {
             opacity: 0;
         }
 
-        /* File List */
         ul {
             list-style-type: none;
             padding: 0;
@@ -209,14 +200,12 @@ while ($row = $result->fetch_assoc()) {
                         $stmt->execute();
                         $files = $stmt->get_result();
 
-                        // Collect filenames
                         $fileArray = [];
                         while ($file = $files->fetch_assoc()) {
                             $fileArray[] = $file;
                         }
                         $stmt->close();
 
-                        // Bubble sort algorithm
                         for ($i = 0; $i < count($fileArray) - 1; $i++) {
                             for ($j = 0; $j < count($fileArray) - $i - 1; $j++) {
                                 if (strcasecmp($fileArray[$j]['filename'], $fileArray[$j + 1]['filename']) > 0) {

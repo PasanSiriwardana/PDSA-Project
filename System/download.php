@@ -1,15 +1,12 @@
 <?php
 include 'db.php';
 
-// Check if the 'file' parameter is set
 if (isset($_GET['file'])) {
-    $filename = basename($_GET['file']); // Sanitize filename
+    $filename = basename($_GET['file']);
     $fileFound = false;
 
-    // Define the base directory for uploads
     $baseDir = 'uploads/';
 
-    // Search through all directories in the base directory
     foreach (glob($baseDir . '*', GLOB_ONLYDIR) as $dir) {
         $filepath = $dir . '/' . $filename;
         if (file_exists($filepath)) {
@@ -19,7 +16,6 @@ if (isset($_GET['file'])) {
     }
 
     if ($fileFound) {
-        // Force download
         header('Content-Description: File Transfer');
         header('Content-Type: application/octet-stream');
         header('Content-Disposition: attachment; filename="' . $filename . '"');
@@ -30,12 +26,10 @@ if (isset($_GET['file'])) {
         readfile($filepath);
         exit;
     } else {
-        // If file not found
         header('HTTP/1.1 404 Not Found');
         echo 'File not found.';
     }
 } else {
-    // If no file parameter is set
     header('HTTP/1.1 400 Bad Request');
     echo 'No file specified.';
 }
